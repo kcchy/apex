@@ -928,7 +928,18 @@ func (f *Function) environment() *lambda.Environment {
 	env := make(map[string]*string)
 	if !f.Edge {
 		for k, v := range f.Environment {
-			env[k] = aws.String(v)
+			if strings.Contains(v, "vault") {
+				path, key := utils.ParseVaultEnv(v)
+				value, err := utils.GetVaultSecret(path, key)
+				if err != nil {
+					fmt.Printf("ERROR: %s, get plaintext from vault server failed", err)
+					os.Exit(1)
+				}
+				Ciphertext := utils.EncryptVaultEnv(f.KMSKeyArn, value)
+				env[k] = aws.String(Ciphertext)
+			} else {
+				env[k] = aws.String(v)
+			}
 		}
 	}
 	return &lambda.Environment{Variables: env}
