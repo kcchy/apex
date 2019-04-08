@@ -935,8 +935,17 @@ func (f *Function) environment() *lambda.Environment {
 					fmt.Printf("ERROR: %s, get plaintext from vault server failed", err)
 					os.Exit(1)
 				}
-				Ciphertext := utils.EncryptVaultEnv(f.KMSKeyArn, value)
-				env[k] = aws.String(Ciphertext)
+
+				envCiphertext := f.getEnvConfig(k)
+				envValue, _ := utils.DecryptVaultEnv(envCiphertext)
+
+				if value != envValue {
+					Ciphertext := utils.EncryptVaultEnv(f.KMSKeyArn, value)
+					env[k] = aws.String(Ciphertext)
+				} else {
+					env[k] = aws.String(envCiphertext)
+				}
+
 			} else {
 				env[k] = aws.String(v)
 			}
@@ -961,6 +970,24 @@ func environ(env map[string]*string) []string {
 	}
 
 	return pairs
+}
+
+// get the special ENV variable
+func (f *Function) getEnvConfig(variable string) string {
+	config, err := f.GetConfig()
+	if err != nil {
+		return ""
+	}
+
+	envs := config.Configuration.Environment.Variables
+	value, ok := envs[variable]
+	if !ok {
+		return ""
+	}
+
+	f.Log.Debugf(*value)
+
+	return *value
 }
 
 // AWSConfig returns AWS configuration if function has specified region.

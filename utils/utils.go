@@ -232,6 +232,27 @@ func GetVaultSecret(path, key string) (value string, err error) {
 	return secret, nil
 }
 
+func DecryptVaultEnv(env string) (string, error) {
+
+	svc := kms.New(session.New())
+
+	decodedBytes, err := base64.StdEncoding.DecodeString(env)
+	if err != nil {
+		return "", err
+	}
+	input := &kms.DecryptInput{
+		CiphertextBlob: decodedBytes,
+	}
+	response, err := svc.Decrypt(input)
+	if err != nil {
+		return "", err
+	}
+	// Plaintext is a byte array, so convert to string
+	decrypted := string(response.Plaintext[:])
+
+	return decrypted, nil
+}
+
 // encrypt sensitive information with KMS
 func EncryptVaultEnv(kid, plaintext string) (output string) {
 	svc := kms.New(session.New())
